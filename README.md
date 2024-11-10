@@ -1,3 +1,17 @@
+# Gemmini for CPRE 581
+- This is branched off the forked directory's 25809f7 commit, hence the name of the default branch.
+- This is to be used with other directories forked by me, eg [Chipyard](https://github.com/jona1115/chipyard/tree/main), [gemmini-rocc-tests](https://github.com/jona1115/gemmini-rocc-tests), and [BOOM](https://github.com/jona1115/riscv-boom).
+
+### How to build gemmini?
+Because the official gemmini README is out-of-date, below is my guide on how to set it up to be used with Chipyard:
+1. Go to <chipyard>/sims/verilator, and run: `make CONFIG=GemminiRocketConfig`. If you are using [my forked version of Chipyard](https://github.com/jona1115/chipyard/tree/main), there are additional guide in the [README.md](https://github.com/jona1115/chipyard/blob/main/README.md).
+2. Still figuring out...
+
+---
+# Below are the original README.md content:
+> Warning: the "Installing Chipyard and Spike", "Setting Up Gemmini", "Building Gemmini Software", and "Building Gemmini Hardware and Cycle-Accurate Simulators" parts are out of date. Use my guide above!
+
+
 <p align="center">
   <img width="1000" src="./img/full-logo.svg">
 </p>
