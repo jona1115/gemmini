@@ -90,6 +90,8 @@ abstract class ArithmeticOps[T <: Data](self: T) {
   def zero: T
   def minimum: T
 
+  //TODO make functions to extract tag info and let it remain 0 for all types except SparseInt
+
   // Optional parameters, which only need to be defined if you want to enable various optimizations for transformers
   def divider(denom_t: UInt, options: Int = 0): Option[(DecoupledIO[UInt], DecoupledIO[T])] = None
   def sqrt: Option[(DecoupledIO[UInt], DecoupledIO[T])] = None
