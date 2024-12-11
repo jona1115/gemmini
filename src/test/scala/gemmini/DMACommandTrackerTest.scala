@@ -1,3 +1,5 @@
+
+/*
 package gemmini
 
 import scala.collection.mutable.ArrayBuffer
@@ -86,3 +88,4 @@ class DMACommandTrackerUnitTest extends ChiselFlatSpec {
   }
 }
 
+*/

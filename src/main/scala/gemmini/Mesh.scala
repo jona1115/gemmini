@@ -114,6 +114,23 @@ class Mesh[T <: Data : Arithmetic](inputType: T, outputType: T, accType: T,
     }
   }
 
+
+ /*
+  STEVE NOTE: We might need to maintain a some structure to record each output in case it gets forwarded, 
+  we also need a way to gate PE's after all their work is done to avoid multipling zeros.
+  We also need to consider that results can arrive out of order, the best way would be resolving this with tags as Gemmini already has a tag queue in MeshWithDelays
+  
+  OOO IDEA 1:
+    Tag each output (forwarded and not) to store it in a buffer
+    Once a row is complete evict it from the buffer to be written to scratchpad
+
+  CTRL IDEA:
+    We need a signal to indicate last element of group so the PE know to forward its result
+    It's possible we could do something with the Last Signal, although that is used to indicate last of an operation
+
+ */
+
+
   // Capture out_vec and out_control_vec (connect IO to bottom row of mesh)
   // (The only reason we have so many zips is because Scala doesn't provide a zipped function for Tuple4)
   for (((((((b, c), v), ctrl), id), last), tile) <- io.out_b zip io.out_c zip io.out_valid zip io.out_control zip io.out_id zip io.out_last zip mesh.last) {

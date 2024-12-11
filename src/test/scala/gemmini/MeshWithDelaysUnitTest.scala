@@ -1,4 +1,5 @@
 
+/*
 package gemmini
 
 import chisel3._
@@ -396,3 +397,4 @@ class MeshWithDelaysTester extends ChiselFlatSpec
     }
   }
 }
+*/

@@ -203,6 +203,9 @@ class MeshWithDelays[T <: Data: Arithmetic, U <: TagQueueTag with Data]
   val out_last = shifted(mesh.io.out_last, outBanks, reverse = true)(0)(0)
   io.resp.bits.last := out_last
 
+
+  //STEVE NOTE: We add one row at time per cycle back to scratchpad, Ideally we want to queue individual commits and add back when a row completes
+
   // Tags
   class TagWithIdAndTotalRows extends Bundle with TagQueueTag {
     val tag = tagType.cloneType

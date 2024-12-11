@@ -23,6 +23,54 @@ case class DummySInt(w: Int) extends Bundle {
   }
 }
 
+// USER DEFINED
+case class SparseUInt(dataWidth: Int, tagsWidth: Int) extends Bundle {
+  // The 'data' field holds the actual data (e.g., matrix value)
+  val data = UInt(dataWidth.W)
+  
+  // The 'tags' field is split into:
+  // - First part: row/col information (rowColWidth bits)
+  // - Second part: last operation flag (1 bit)
+  val tags = UInt(tagsWidth.W)  // row/col info + 1 bit for last operation
+  
+  // Extract methods for row/col info and last bit
+  def getRowColInfo: UInt = tags(tagsWidth-1, 1)  // Row/Col info is in the lower bits, excluding the last bit
+  
+  def getLast: Bool = tags(tagsWidth-1)           // The last operation bit is the highest bit
+  
+}
+
+
+class Complex(val w: Int) extends Bundle {
+  val real = SInt(w.W)
+  val imag = SInt(w.W)
+}
+
+object Complex {
+  def apply(w: Int, real: SInt, imag: SInt): Complex = {
+    val result = Wire(new Complex(w))
+    result.real := real
+    result.imag := imag
+    result
+  }
+}
+
+
+class SparseInt(val w: Int) extends Bundle {
+  val data = SInt(w.W)
+  val tags = UInt(w.W)
+}
+
+object SparseInt {
+  def apply(w: Int, data: SInt, tags: UInt): SparseInt = {
+    val result = Wire(new SparseInt(w))
+    result.data := data
+    result.tags := tags
+    result
+  }
+}
+
+
 // The Arithmetic typeclass which implements various arithmetic operations on custom datatypes
 abstract class Arithmetic[T <: Data] {
   implicit def cast(t: T): ArithmeticOps[T]
@@ -537,4 +585,199 @@ object Arithmetic {
       override def minimum: DummySInt = self.dontCare
     }
   }
+
+  implicit object ComplexArithmetic extends Arithmetic[Complex] {
+    override implicit def cast(self: Complex) = new ArithmeticOps(self) {
+      override def *(other: Complex): Complex = {
+        val w = self.w max other.w
+
+        Complex(w,
+          self.real * other.real - self.imag * other.imag,
+          self.real * other.imag + self.imag * other.real
+        )
+      }
+
+      override def +(other: Complex): Complex = {
+        val w = self.w max other.w
+
+        Complex(w,
+          self.real + other.real,
+          self.imag + other.imag
+        )
+      }
+
+      def mac(m1: Complex, m2: Complex): Complex = {
+        /*
+        TUTORIAL:
+          Implement the multiply-accumulate operation (self + m1 * m2) over here.
+         */
+        self + m1 * m2
+      }
+
+      override def zero = Complex(self.w, 0.S, 0.S)
+      override def identity: Complex = self
+      override def withWidthOf(other: Complex) = Complex(other.w, self.real, self.imag)
+
+      def clippedToWidthOf(other: Complex): Complex = {
+        // Like "withWidthOf", except that it saturates
+        val maxsat = ((1 << (other.w - 1)) - 1).S
+        val minsat = (-(1 << (other.w - 1))).S
+
+        Complex(other.w,
+          Mux(self.real > maxsat, maxsat, Mux(self.real < minsat, minsat, self.real)),
+          Mux(self.imag > maxsat, maxsat, Mux(self.imag < minsat, minsat, self.imag)),
+        )
+      }
+
+      // Not implemented because not necessary for this tutorial
+      override def >>(u: UInt) = self
+      override def >(t: Complex) = false.B
+      override def relu = self
+      override def -(other: Complex): Complex = self
+      override def minimum: Complex = 0.U.asTypeOf(self)
+    }
+  }
+
+     // USER DEFINED DATA TYPE
+  implicit object SparseUIntArithmetic extends Arithmetic[SparseUInt] {
+    override implicit def cast(self: SparseUInt) = new ArithmeticOps(self) {
+      override def *(t: SparseUInt): SparseUInt = {
+        val result = Wire(new SparseUInt(self.data.getWidth, self.tags.getWidth))
+        result.data := self.data * t.data
+        result.tags := self.tags
+        result
+      }
+      override def mac(m1: SparseUInt, m2: SparseUInt) = self + m1 * m2
+      override def +(t: SparseUInt): SparseUInt = {
+        val result = Wire(new SparseUInt(self.data.getWidth, self.tags.getWidth))
+        result.data := self.data + t.data
+        result.tags := self.tags
+        result
+      }
+      override def -(t: SparseUInt): SparseUInt = {
+        val result = Wire(new SparseUInt(self.data.getWidth, self.tags.getWidth))
+        result.data := self.data - t.data
+        result.tags := self.tags
+        result
+      }
+
+      override def >>(u: UInt): SparseUInt = {
+        val result = Wire(new SparseUInt(self.data.getWidth, self.tags.getWidth))
+        result.data := self.data >> u
+        result.tags := self.tags
+        result
+      }
+
+      override def >(t: SparseUInt): Bool = self.data > t.data
+
+      //with aid of ChatGPT
+      override def withWidthOf(t: SparseUInt): SparseUInt = {
+        // Create a new SparseUInt to hold the result
+        val result = Wire(new SparseUInt(t.data.getWidth, t.tags.getWidth))
+
+        // Adjust the `data` field width
+        if (self.data.getWidth >= t.data.getWidth) {
+          // Truncate the `data` field if self.data is wider than target `t.data`
+          result.data := self.data(t.data.getWidth - 1, 0)
+        } else {
+          // Zero-extend the `data` field if self.data is narrower than target `t.data`
+          val zeroBits = t.data.getWidth - self.data.getWidth
+          result.data := Cat(Seq.fill(zeroBits)(0.U).reverse) ## self.data
+        }
+
+        // Adjust the `tags` field width (can either keep the tags unchanged or adjust similarly)
+        // Assuming tags should be copied, you can modify the tags if needed
+        result.tags := self.tags
+
+        result
+      }
+
+     //with aid of ChatGPT
+     def clippedToWidthOf(t: SparseUInt): SparseUInt = {
+        // Create a new SparseUInt to hold the result
+        val result = Wire(new SparseUInt(t.data.getWidth, t.tags.getWidth))
+
+        // Calculate the maximum valid value for the target data width (unsigned max value)
+        val satMax = ((1 << t.data.getWidth) - 1).U  // Maximum value for unsigned width
+
+        // Clip the `data` field to the valid unsigned range [0, satMax]
+        result.data := Mux(self.data > satMax, satMax, self.data)
+
+        // Tags remain unchanged, or you can modify the tags if necessary
+        result.tags := self.tags
+
+        result
+      }
+    
+      override def relu: SparseUInt = {
+        val result = Wire(new SparseUInt(self.data.getWidth, self.tags.getWidth))
+        result.data := self.data
+        result.tags := self.tags
+        result
+      }
+
+      override def zero: SparseUInt = //0.U.asTypeOf(self)
+      {
+        val result = Wire(new SparseUInt(self.data.getWidth, self.tags.getWidth))
+        result.data := 0.U
+        result.tags := self.tags
+        result
+      }
+      override def identity: SparseUInt = {
+        val result = Wire(new SparseUInt(self.data.getWidth, self.tags.getWidth))
+        result.data := 1.U
+        result.tags := self.tags
+        result
+      }
+      override def minimum: SparseUInt = {
+        val result = Wire(new SparseUInt(self.data.getWidth, self.tags.getWidth))
+        result.data := 0.U
+        result.tags := self.tags
+        result
+      }
+    }
+  }
+
+
+  implicit object SparseIntArithmetic extends Arithmetic[SparseInt] {
+    override implicit def cast(self: SparseInt) = new ArithmeticOps(self) {
+      override def *(t: SparseInt): SparseInt = {
+        val w = self.w max t.w
+        SparseInt(w, self.data * t.data, self.tags)
+      }
+      override def mac(m1: SparseInt, m2: SparseInt) = self + m1 * m2
+      override def +(t: SparseInt): SparseInt = {
+        val w = self.w max t.w
+        SparseInt(w, self.data + t.data, self.tags)
+      }
+      override def -(t: SparseInt): SparseInt = {
+        val w = self.w max t.w
+        SparseInt(w, self.data - t.data, self.tags)
+      }
+      override def >>(u: UInt): SparseInt = {
+        SparseInt(self.w, self.data >> u, self.tags)
+      }
+      override def >(t: SparseInt): Bool = self.data > t.data
+
+      override def withWidthOf(t: SparseInt) = SparseInt(t.w, self.data, self.tags)
+
+      def clippedToWidthOf(t: SparseInt): SparseInt = {
+        // Like "withWidthOf", except that it saturates
+        val maxsat = ((1 << (t.w - 1)) - 1).S
+        val minsat = (-(1 << (t.w - 1))).S
+
+        SparseInt(t.w,
+          Mux(self.data > maxsat, maxsat, Mux(self.data < minsat, minsat, self.data)),
+          self.tags,
+        )
+      }
+      override def relu = SparseInt(self.w, Mux(self.data >= 0.S, self.data, 0.S), self.tags)
+      override def zero = SparseInt(self.w, 0.S, 0.U)
+      //override def zero: SparseInt = 0.U.asTypeOf(self)
+      override def identity = SparseInt(self.w, 1.S, self.tags)
+      override def minimum = SparseInt(self.w, (-(1 << (self.data.getWidth-1))).S, self.tags)
+    }
+  }
+
+
 }

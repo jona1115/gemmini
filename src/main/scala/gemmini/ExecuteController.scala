@@ -135,6 +135,27 @@ class ExecuteController[T <: Data, U <: Data, V <: Data](xLen: Int, tagWidth: In
   //fix by input
   val im2col_en = config.hasIm2Col.B && weight_stride =/= 0.U
 
+  // STEVE NOTE: Here is where address d is set as matrix B for preloads, this makes sense given the preload command below
+
+  /*
+  Format: matmul.preload rs1, rs2
+    rs1[31:0] = local scratchpad address of D matrix (when output-stationary), or B matrix (when weight-stationary)
+
+  Should 0's for the D matrix flow through B's address during compute (b being the parital sum value propagated down), b address is garbage in this case
+
+  Format: matmul.compute.preloaded rs1, rs2
+
+  rs1[31:0] = local scratchpad address (systolic array single-axis addressed) of A matrix
+  rs1[47:32] = number of columns of A matrix
+  rs1[63:48] = number of rows of A matrix
+  rs2[31:0] = local scratchpad address (systolic array single-axis addressed) of B matrix (when output-stationary), or D matrix (when weight-stationary)
+  rs2[47:32] = number of columns of B/D matrix
+  rs2[63:48] = number of rows of B/D matrix
+  funct = 4
+  This instruction will compute on the value preloaded (D if output-stationary, or B if weight-stationary)
+
+  */
+
   // SRAM addresses of matmul operands
   val a_address_rs1 = rs1s(a_address_place).asTypeOf(local_addr_t)
   val b_address_rs2 = rs2s(b_address_place).asTypeOf(local_addr_t)
