@@ -59,6 +59,7 @@ object Complex {
 class SparseInt(val w: Int) extends Bundle {
   val data = SInt(w.W)
   val tags = UInt(w.W)
+
 }
 
 object SparseInt {
@@ -91,6 +92,8 @@ abstract class ArithmeticOps[T <: Data](self: T) {
   def minimum: T
 
   //TODO make functions to extract tag info and let it remain 0 for all types except SparseInt
+  def forward: Bool
+  def row: UInt
 
   // Optional parameters, which only need to be defined if you want to enable various optimizations for transformers
   def divider(denom_t: UInt, options: Int = 0): Option[(DecoupledIO[UInt], DecoupledIO[T])] = None
@@ -134,6 +137,10 @@ object Arithmetic {
       override def zero: UInt = 0.U
       override def identity: UInt = 1.U
       override def minimum: UInt = 0.U
+
+      override def forward: Bool = false.B
+      override def row: UInt = 0.U
+
     }
   }
 
@@ -180,6 +187,9 @@ object Arithmetic {
       override def zero: SInt = 0.S
       override def identity: SInt = 1.S
       override def minimum: SInt = (-(1 << (self.getWidth-1))).S
+
+      override def forward: Bool = false.B
+      override def row: UInt = 0.U
 
       override def divider(denom_t: UInt, options: Int = 0): Option[(DecoupledIO[UInt], DecoupledIO[SInt])] = {
         // TODO this uses a floating point divider, but we should use an integer divider instead
@@ -568,6 +578,9 @@ object Arithmetic {
       override def zero: Float = 0.U.asTypeOf(self)
       override def identity: Float = Cat(0.U(2.W), ~(0.U((self.expWidth-1).W)), 0.U((self.sigWidth-1).W)).asTypeOf(self)
       override def minimum: Float = Cat(1.U, ~(0.U(self.expWidth.W)), 0.U((self.sigWidth-1).W)).asTypeOf(self)
+
+      override def forward: Bool = false.B
+      override def row: UInt = 0.U
     }
   }
 
@@ -585,6 +598,8 @@ object Arithmetic {
       override def relu = self.dontCare
       override def zero = self.dontCare
       override def minimum: DummySInt = self.dontCare
+      override def forward: Bool = false.B
+      override def row: UInt = 0.U
     }
   }
 
@@ -637,6 +652,9 @@ object Arithmetic {
       override def relu = self
       override def -(other: Complex): Complex = self
       override def minimum: Complex = 0.U.asTypeOf(self)
+
+      override def row: UInt = 0.U
+      override def forward: Bool = false.B
     }
   }
 
@@ -737,6 +755,9 @@ object Arithmetic {
         result.tags := self.tags
         result
       }
+
+      override def row: UInt = 0.U
+      override def forward: Bool = false.B
     }
   }
 
@@ -778,6 +799,17 @@ object Arithmetic {
       //override def zero: SparseInt = 0.U.asTypeOf(self)
       override def identity = SparseInt(self.w, 1.S, self.tags)
       override def minimum = SparseInt(self.w, (-(1 << (self.data.getWidth-1))).S, self.tags)
+
+      override def forward: Bool = {
+        // Access the MSB of 'tags' directly
+        self.tags(self.w - 1)
+    }
+      // Define the 'row' operation that returns the 2nd and 3rd MSBs as a UInt
+      override def row: UInt = {
+        // Extract the 2nd and 3rd MSBs by shifting and masking
+        (self.tags(self.w - 2) ## self.tags(self.w - 3)).asUInt
+    }
+
     }
   }
 

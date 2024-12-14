@@ -132,6 +132,17 @@ object GemminiCustomConfigs {
     //has_nonlinear_activations = false
   )
 
+  val testconfig = GemminiArrayConfig[SInt, Float, Float](
+    //dataflow = Dataflow.WS,
+    inputType = SInt(16.W),
+    accType = SInt(16.W),
+    spatialArrayOutputType = SInt(16.W),
+
+    meshRows = 4,
+    meshColumns = 4,
+  )
+
+
 
   val baselineInferenceConfig = defaultConfig.copy(
     has_training_convs = false,

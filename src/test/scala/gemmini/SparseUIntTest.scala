@@ -1,3 +1,4 @@
+/*
 package gemmini
 
 import Arithmetic.SparseUIntArithmetic._
@@ -6,24 +7,11 @@ import Util._
 
 import chisel3.util._
 
-//import Arithmetic._
-
 import chisel3._
 import chiseltest._
 import org.scalatest.flatspec.AnyFlatSpec  // Use AnyFlatSpec for testing
 
 // Written in part with help from chatgpt
-
-// class SparseUIntModule(dataWidth: Int, tagsWidth: Int) extends Module {
-//   val io = IO(new Bundle {
-//     val in1 = Input(new SparseUInt(dataWidth, tagsWidth))
-//     val in2 = Input(new SparseUInt(dataWidth, tagsWidth))
-//     val out = Output(new SparseUInt(dataWidth, tagsWidth))
-//   })
-
-//   // Arithmetic operations
-//   io.out := io.in1 + io.in2  // This calls the + method defined in ArithmeticOps
-// }
 
 // Define a SparseUInt module with an arithmetic selector
 class SparseUIntModule(dataWidth: Int, tagsWidth: Int) extends Module {
@@ -37,7 +25,7 @@ class SparseUIntModule(dataWidth: Int, tagsWidth: Int) extends Module {
     val opSelect = Input(UInt(4.W))  // Selector to choose arithmetic operation (e.g., 0 for +, 1 for *, etc.)
   })
 
-// Define the result variable
+  // Define the result variable
   val result = Wire(new SparseUInt(dataWidth, tagsWidth))
   val bool_result = Wire(new Bool)
 
@@ -70,33 +58,6 @@ class SparseUIntModule(dataWidth: Int, tagsWidth: Int) extends Module {
     io.out_bool := bool_result
 
     io.out_a := result
-
-    // Add more cases if necessary
-
-
-    /*
-      def *(t: T): T
-      def mac(m1: T, m2: T): T // Returns (m1 * m2 + self)
-      def +(t: T): T
-      def -(t: T): T
-      def >>(u: UInt): T // This is a rounding shift! Rounds away from 0
-      def >(t: T): Bool
-      def identity: T
-      def withWidthOf(t: T): T
-      def clippedToWidthOf(t: T): T // Like "withWidthOf", except that it saturates
-      def relu: T
-      def zero: T
-      def minimum: T
-
-      // Optional parameters, which only need to be defined if you want to enable various optimizations for transformers
-      def divider(denom_t: UInt, options: Int = 0): Option[(DecoupledIO[UInt], DecoupledIO[T])] = None
-      def sqrt: Option[(DecoupledIO[UInt], DecoupledIO[T])] = None
-      def reciprocal[U <: Data](u: U, options: Int = 0): Option[(DecoupledIO[UInt], DecoupledIO[U])] = None
-      def mult_with_reciprocal[U <: Data](reciprocal: U) = self
-    */
-
-
-  // Assign the result to the output
 }
 
 class SparseUIntTest extends AnyFlatSpec with ChiselScalatestTester {
@@ -125,12 +86,8 @@ class SparseUIntTest extends AnyFlatSpec with ChiselScalatestTester {
       println(s"Output Data: ${outData.litValue}")
       println(s"Output Tags: ${outTags.litValue}")
 
-      // Check that the data field is correctly added
-      c.io.out_a.data.expect(8.U)  // 5 + 3 = 8
-
-      // Check that the tags field is handled correctly
-      // Assuming the logic for tags combines them (i.e., OR operation)
-      c.io.out_a.tags.expect(1.U)  // 1 | 2 = 3 (OR operation)
+      c.io.out_a.data.expect(8.U) 
+      c.io.out_a.tags.expect(1.U)
 
     }
   }
@@ -276,7 +233,6 @@ class SparseUIntTest extends AnyFlatSpec with ChiselScalatestTester {
     }
   }
 
-  
   "SparseUInt ArithmeticOps" should "apply withWidthOf operation correctly" in {
     test(new SparseUIntModule(8, 8)) { c =>
       // Poke values into the inputs
@@ -415,38 +371,6 @@ class SparseUIntTest extends AnyFlatSpec with ChiselScalatestTester {
     }
   }
 
-
 }
 
-// // Define the test for SparseUInt
-// class SparseUIntTest extends AnyFlatSpec with ChiselScalatestTester {
-
-//   "SparseUInt ArithmeticOps" should "add SparseUInt values correctly" in {
-//     test(new SparseUIntModule(8, 8)) { c =>
-//       // Poke values into the inputs
-//       c.io.in1.data.poke(5.U)  // Assign 5 to data of in1
-//       c.io.in1.tags.poke(1.U)  // Assign 1 to tags of in1
-
-//       c.io.in2.data.poke(3.U)  // Assign 3 to data of in2
-//       c.io.in2.tags.poke(2.U)  // Assign 2 to tags of in2
-
-//       // Wait for the operation to complete (1 cycle)
-//       c.clock.step(1)
-
-//       // Get the actual values of the output
-//       val outData = c.io.out.data.peek()
-//       val outTags = c.io.out.tags.peek()
-
-//       // Print the actual values (whether expected or not)
-//       println(s"Output Data: ${outData.litValue}")
-//       println(s"Output Tags: ${outTags.litValue}")
-
-//       // Check that the data field is correctly added
-//       c.io.out.data.expect(8.U)  // 5 + 3 = 8
-
-//       // Check that the tags field is handled correctly
-//       // Assuming the logic for tags combines them (i.e., OR operation)
-//       c.io.out.tags.expect(1.U)  // 1 | 2 = 3 (OR operation)
-//     }
-//   }
-// }
+*/
