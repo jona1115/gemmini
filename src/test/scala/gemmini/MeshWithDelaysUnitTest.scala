@@ -494,9 +494,27 @@ class MeshWithDelaysTester extends AnyFlatSpec with ChiselScalatestTester
 
     print("Starting Test:\n")
 
-    test(new MeshWithDelays(inputType, spatialArrayOutputType, accType, (new LocalMeshTag).cloneType, dataflow, tree_reduce, tile_lat, output_lat, tileRows, tileColumns, meshRows, meshColumns, 
-    shifter_banks, shifter_banks)).withAnnotations(Seq(WriteVcdAnnotation/*VerilatorBackendAnnotation*/)).runPeekPoke(new WSMeshWithDelaysUnitTest(_, Seq.fill(1)(MeshTesterInput(rand(meshColumns), rand(meshColumns), zero(meshColumns), 
-    true)), () => 0, verbose = true))
+    test(new MeshWithDelays(inputType, 
+                            spatialArrayOutputType, 
+                            accType, 
+                            (new LocalMeshTag).cloneType, 
+                            dataflow, 
+                            tree_reduce,
+                            tile_lat,
+                            output_lat,
+                            tileRows,
+                            tileColumns,
+                            meshRows,
+                            meshColumns, 
+                            shifter_banks, shifter_banks)
+    )
+    .withAnnotations(Seq(WriteVcdAnnotation/*VerilatorBackendAnnotation*/))
+    .runPeekPoke(
+      new WSMeshWithDelaysUnitTest(_,
+        Seq.fill(1)(MeshTesterInput(rand(meshColumns), rand(meshColumns), zero(meshColumns), true)),
+        () => 0,
+        verbose = true)
+    )
   }
 /*
   // Fully combinational
