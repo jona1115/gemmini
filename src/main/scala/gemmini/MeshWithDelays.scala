@@ -107,9 +107,14 @@ class MeshWithDelays[T <: Data: Arithmetic, U <: TagQueueTag with Data]
 
   val in_prop = Reg(UInt(1.W)) // TODO inelegant
 
+  // Only input next row if req.valid and values written, or req.flush > 0
+
   val input_next_row_into_spatial_array = req.valid && ((a_written && b_written && d_written) || req.bits.flush > 0.U)
 
   val last_fire = fire_counter === total_fires - 1.U && input_next_row_into_spatial_array
+
+  // Upon io.req fire (ready/valid) set matmul_id
+  // whem last_fire req.valid if req.flush > 0 and req.flush--
 
   when (io.req.fire) {
     req.push(io.req.bits)

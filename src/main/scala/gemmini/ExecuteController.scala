@@ -219,12 +219,16 @@ class ExecuteController[T <: Data, U <: Data, V <: Data](xLen: Int, tagWidth: In
   mesh.io.req.bits.tag.cols := cntl.c_cols
   mesh.io.req.bits.tag.rows := cntl.c_rows
   mesh.io.req.bits.total_rows := block_size.U
+
+  // Force propagate low during flush (WS), otherwise follow q order (flush never achieved in WS?)
   mesh.io.req.bits.pe_control.propagate := Mux(control_state === flush, in_prop_flush, cntl.prop)
   mesh.io.req.bits.pe_control.dataflow := cntl.dataflow
   mesh.io.req.bits.pe_control.shift := cntl.shift
   mesh.io.req.bits.a_transpose := cntl.a_transpose
   mesh.io.req.bits.bd_transpose := cntl.bd_transpose
   mesh.io.req.bits.tag.rob_id := cntl.rob_id
+
+  // if req !valid and flush state, force flush bits to 1, otherwise they are 0
   mesh.io.req.bits.flush := Mux(control_state === flush && !cntl_valid, 1.U, 0.U) // We want to make sure that the mesh has absorbed all inputs before flushing
 
   // Hazards
@@ -641,6 +645,8 @@ class ExecuteController[T <: Data, U <: Data, V <: Data](xLen: Int, tagWidth: In
           control_state := compute
         }
 
+        //Start flushing during matmul if OS
+
         // Flush
         .elsewhen(matmul_in_progress && (current_dataflow === Dataflow.OS.id.U || DoConfig)) {
           control_state := flush
@@ -700,6 +706,7 @@ class ExecuteController[T <: Data, U <: Data, V <: Data](xLen: Int, tagWidth: In
         }
       }
     }
+    // after fire wait for req ready
     is(flush) {
       when(mesh.io.req.fire) {
         control_state := flushing
@@ -814,6 +821,8 @@ class ExecuteController[T <: Data, U <: Data, V <: Data](xLen: Int, tagWidth: In
   mesh_cntl_signals_q.io.enq.bits.rob_id.bits := cmd.bits(preload_cmd_place).rob_id.bits
 
   mesh_cntl_signals_q.io.enq.bits.dataflow := current_dataflow
+
+  // When performing single preload in_prop_flush is prop, else its in_prop
   mesh_cntl_signals_q.io.enq.bits.prop := Mux(performing_single_preload, in_prop_flush, in_prop)//prop) //available propagate or not?
   mesh_cntl_signals_q.io.enq.bits.shift := in_shift
 

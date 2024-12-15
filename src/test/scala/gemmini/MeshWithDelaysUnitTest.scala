@@ -1,3 +1,4 @@
+/*
 package gemmini
 
 
@@ -82,6 +83,33 @@ abstract class MeshWithDelaysUnitTest(c: MeshWithDelays[SInt, LocalMeshTag], ms:
     Seq(c.io.a.ready, c.io.b.ready, c.io.d.ready).forall(r => peek(r) != 0)
   }
 
+
+  def pokeAddr(data: Int, garbage: Boolean):  Unit = {
+
+    //val local_addr_t = c.io.req.bits.tag.addr.cloneType
+
+    if(garbage)
+    {
+      poke(c.io.req.bits.tag.addr.accumulate, 1)
+      poke(c.io.req.bits.tag.addr.data, 0xFFFFFFFF)
+      poke(c.io.req.bits.tag.addr.garbage, 0)
+      poke(c.io.req.bits.tag.addr.garbage_bit, 1)
+      poke(c.io.req.bits.tag.addr.is_acc_addr, 1)
+      poke(c.io.req.bits.tag.addr.norm_cmd, 0)
+      poke(c.io.req.bits.tag.addr.read_full_acc_row, 1)
+    }
+    else
+    {
+      poke(c.io.req.bits.tag.addr.accumulate, 0)
+      poke(c.io.req.bits.tag.addr.data, data)
+      poke(c.io.req.bits.tag.addr.garbage, 0)
+      poke(c.io.req.bits.tag.addr.garbage_bit, 0)
+      poke(c.io.req.bits.tag.addr.is_acc_addr, 0)
+      poke(c.io.req.bits.tag.addr.norm_cmd, 0)
+      poke(c.io.req.bits.tag.addr.read_full_acc_row, 0)
+    }
+  }
+
   assert(ms.head.flipS != 0, "Cannot re-use D for first input")
 
   /*
@@ -92,6 +120,8 @@ abstract class MeshWithDelaysUnitTest(c: MeshWithDelays[SInt, LocalMeshTag], ms:
       dims(a) == dims(d) && dims(b) == dims(d)
   }, "Array must be square and the matrices must be the same size as the array") // TODO get rid of square requirement
   */
+
+  
 
   val dim = rows(ms.head.D)
 
@@ -108,47 +138,24 @@ abstract class MeshWithDelaysUnitTest(c: MeshWithDelays[SInt, LocalMeshTag], ms:
       //     acc
       // }
       val peek_tag = peek(c.io.resp.bits.tag.rob_id.bits).toInt//peek(c.io.tag_out).toInt
-      if (peek_tag != -1)
+      if (peek_tag == 1)
         raw_mesh_output = (peek_c, 0/*peek_s*/, peek_tag) +: raw_mesh_output
     }
   }
-
-  // def makeTagGarbage[U <: TagQueueTag with Data](tag: U): Unit = {
-    
-  //   val tag_garbage = Wire(tag.cloneType)
-  //   tag_garbage := DontCare
-  //   tag_garbage.make_this_garbage()
-
-  //   // Assuming `U` is a type with specific fields like `rob_id`, `addr`, etc.
-  //   // Poke each field individually into the module if `U` is the expected type
-  //   tag match {
-  //      case t: c.tagType =>  // Match the actual type of the tag
-  //       poke(t.rob_id, tag_garbage.rob_id)
-  //       poke(t.addr, tag_garbage.addr)
-  //       poke(t.rows, tag_garbage.rows)
-  //       poke(t.cols, tag_garbage.cols)
-  //     case _ =>
-  //       println("Warning: Tag doesn't match expected type.")
-  //   }
-  // }
-
 
   def startup(getOut: Boolean): Unit = {
 
     // Assert not valid until req.ready
 
-    // poke(c.io.req.valid, 0)
+    // pokeAddr(0, true)
     // poke(c.io.req.bits.tag.rob_id.valid, 0)
     // poke(c.io.req.bits.tag.rob_id.bits, 0)
 
-    // poke(c.io.req.bits.pe_control.propagate, preload) //poke(c.io.s, meshIn.S)
-    // poke(c.io.req.bits.pe_control.dataflow, 1) // poke(c.io.m, meshIn.M)
+    // poke(c.io.req.bits.tag.cols, 4)
+    // poke(c.io.req.bits.tag.rows, 4)
     // poke(c.io.req.bits.pe_control.shift, shift)
-    // poke(c.io.req.bits.a_transpose, 0)
-    // poke(c.io.req.bits.bd_transpose, 0)
-    // poke(c.io.req.bits.total_rows, 4)
 
-    poke(c.io.req.bits.flush, 2) //poke(c.io.flush.bits, 2)
+    //poke(c.io.req.bits.flush, 2) //poke(c.io.flush.bits, 2)
     reset()
     do {
       step(1)
@@ -157,19 +164,8 @@ abstract class MeshWithDelaysUnitTest(c: MeshWithDelays[SInt, LocalMeshTag], ms:
       if (getOut)
         updateOutput()
     } while (peek(c.io.req.ready) == 0 && currentCycle < maxCycles)
+    reset()
   }
-
-
-  def pokeAddr(data: Int, garbage: Int, accumulate: Int):  Unit = {
-
-    poke(c.io.req.bits.tag.addr.accumulate, accumulate)
-    poke(c.io.req.bits.tag.addr.data, data)
-    poke(c.io.req.bits.tag.addr.garbage, 0)
-    poke(c.io.req.bits.tag.addr.garbage_bit, garbage)
-    poke(c.io.req.bits.tag.addr.is_acc_addr, accumulate)
-    poke(c.io.req.bits.tag.addr.norm_cmd, 0)
-    poke(c.io.req.bits.tag.addr.read_full_acc_row, 0)
-
 
 
   //   def make_this_garbage(dummy: Int = 0): Unit = {
@@ -178,9 +174,7 @@ abstract class MeshWithDelaysUnitTest(c: MeshWithDelays[SInt, LocalMeshTag], ms:
   //   read_full_acc_row := true.B
   //   garbage_bit := 1.U
   //   data := ~(0.U(maxAddrBits.W))
-  // }
-
-  }
+  // 
 
   def formatMs(ms: Seq[MeshTesterInput]): Seq[MeshInput]
   def formatOut(outs: Seq[Matrix[Int]], tags: Seq[Int]): Seq[MeshOutput]
@@ -194,10 +188,11 @@ abstract class MeshWithDelaysUnitTest(c: MeshWithDelays[SInt, LocalMeshTag], ms:
   val meshRows = 4
   val tileRows = 1
 
+
   startup(false) //wait for ready signal
 
-  // It seems to like this
-  poke(c.io.req.bits.flush, 2)
+  // It seems to like this as 2
+  poke(c.io.req.bits.flush, 0)
 
   // Input all matrices
   val meshInputs = formatMs(ms)
@@ -221,13 +216,12 @@ abstract class MeshWithDelaysUnitTest(c: MeshWithDelays[SInt, LocalMeshTag], ms:
     poke(c.io.req.bits.pe_control.shift, shift)
     poke(c.io.req.bits.a_transpose, 0)
     poke(c.io.req.bits.bd_transpose, 0)
-
     poke(c.io.req.bits.total_rows, meshRows*tileRows)
 
 
     // Set Tag Bits (Still figuring out)
 
-    pokeAddr(4, 0, 0)
+    pokeAddr(4, false)
     poke(c.io.req.bits.tag.rob_id.valid, 1)
     poke(c.io.req.bits.tag.rob_id.bits, meshIn.tag+1)
     poke(c.io.req.bits.tag.cols, 4)
@@ -250,7 +244,7 @@ abstract class MeshWithDelaysUnitTest(c: MeshWithDelays[SInt, LocalMeshTag], ms:
       do {
         step(1)
         currentCycle+=1
-        print(s"Current Cycle: ${currentCycle}\n")
+        print(s"Input: Current Cycle: ${currentCycle}\n")
 
         updateOutput()
         pokeAllInputValids(false)
@@ -264,23 +258,32 @@ abstract class MeshWithDelaysUnitTest(c: MeshWithDelays[SInt, LocalMeshTag], ms:
   // Flush out the final results
 
   // I think propagate is set high here to flush out weights? It doesn't really do that and flushing weights would naturally occur with new inpuits
-  poke(c.io.req.bits.pe_control.propagate, 1) //poke(c.io.s, 1)
+  //poke(c.io.req.bits.pe_control.propagate, 1) //poke(c.io.s, 1)
   
   // This one has me baffled
-  poke(c.io.req.bits.flush, 0)//poke(c.io.flush.valid, 1)
-
-  // 
-  poke(c.io.req.valid, 1)
+  //poke(c.io.req.bits.flush, 1)//poke(c.io.flush.valid, 1)
+  //poke(c.io.req.valid, 1)
   do {
-    print("Flush Output:\n")
+    //print("Flush Output:\n")
     step(1)
     currentCycle+=1
-    print(s"Current Cycle: ${currentCycle}\n")
+    print(s"Wait for Resp: Current Cycle: ${currentCycle}\n")
 
     poke(c.io.req.valid, 0)//poke(c.io.flush.valid, 0)
     updateOutput()
     // Need a way to tell when data is done flushing, the req.bits.last signal sort of works for this, but its still counting the preload as valid output
-  } while (peek(c.io.req.ready/*c.io.flush.ready*/) == 0 && currentCycle < maxCycles)
+
+    //val peek_tag = peek(c.io.resp.bits.tag.rob_id.bits).toInt//peek(c.io.tag_out).toInt
+
+  } while ((peek(c.io.resp.bits.last) == 0 || peek(c.io.resp.bits.tag.rob_id.bits).toInt != 1) && currentCycle < maxCycles)
+
+  for (i <- 0 until 10) {
+    step(1)
+    currentCycle+=1
+    print(s"Cleanup: Current Cycle: ${currentCycle}\n")
+  }
+
+  //while (peek(c.io.req.ready/*c.io.flush.ready*/) == 0 && currentCycle < maxCycles)
 
 
 /*
@@ -360,8 +363,8 @@ abstract class MeshWithDelaysUnitTest(c: MeshWithDelays[SInt, LocalMeshTag], ms:
     }
     Console.flush()
   }
-  // assert(results.map(_.C) == golds, "Array output is not correct")
-  // assert(results.map(_.tag) == meshInputs.init.map(_.tag), "Array tags are not correct")
+  assert(results.map(_.C) == golds, "Array output is not correct")
+  //assert(results.map(_.tag) == meshInputs.init.map(_.tag), "Array tags are not correct")
 }
 /*
 class OSMeshWithDelaysUnitTest[T <: Data: Arithmetic, U <: TagQueueTag with Data](c: MeshWithDelays[T, U], ms: Seq[MeshTesterInput],
@@ -474,7 +477,7 @@ class MeshWithDelaysTester extends AnyFlatSpec with ChiselScalatestTester
 
   val dataflow = Dataflow.WS
   val tree_reduce = false
-  val tile_lat = 1
+  val tile_lat = 0
   val output_lat = 1
   val tile_dim = 1
   val mesh_dim = 4
@@ -583,6 +586,30 @@ class MeshWithDelaysTester extends AnyFlatSpec with ChiselScalatestTester
   }
   */
 }
+
+
+*/
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// OLD
+
+
+
 
 
 
