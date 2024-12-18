@@ -14,11 +14,13 @@ import chisel3.experimental._
   * @param meshRows
   * @param meshColumns
   */
-class SparseMesh[T <: Data : Arithmetic](inputType: T, outputType: T, accType: T,
+class SparseMesh[T <: Data](inputType: T, outputType: T, accType: T,
                                    df: Dataflow.Value, tree_reduction: Boolean, tile_latency: Int,
                                    max_simultaneous_matmuls: Int, output_delay: Int,
                                    val tileRows: Int, val tileColumns: Int,
-                                   val meshRows: Int, val meshColumns: Int) extends Module {
+                                   val meshRows: Int, val meshColumns: Int) (implicit ev: Arithmetic[T]) extends Module {
+  import ev._
+
   val io = IO(new Bundle {
     val in_a = Input(Vec(meshRows, Vec(tileRows, inputType)))
     val in_b = Input(Vec(meshColumns, Vec(tileColumns, inputType)))
@@ -35,7 +37,11 @@ class SparseMesh[T <: Data : Arithmetic](inputType: T, outputType: T, accType: T
     val out_last = Output(Vec(meshColumns, Vec(tileColumns, Bool())))
 
     // Extra output for forwarded B data
+    //val out_forwarded_b = Output(Vec(meshColumns, Vec(meshRows, Vec(tileColumns, outputType))))
+
     val out_forwarded_b = Output(Vec(meshColumns, Vec(tileColumns, outputType)))
+    val out_forwarded_b_valid = Output(Vec(meshColumns, Vec(tileColumns, Bool())))
+
   })
 
   // mesh(r)(c) => Tile at row r, column c
@@ -49,7 +55,18 @@ class SparseMesh[T <: Data : Arithmetic](inputType: T, outputType: T, accType: T
   }
 
   // pipe with forwarding mux
-//   def pipeWithForwarding[T <: Data](valid: Bool, t: T, latency: Int, forwardingCondition: Bool, forwardedData: T): T = {
+  // def pipeWithForwarding[T <: Data: Arithmetic](valid: Bool, t: T, latency: Int): T = {
+  //   // The default "Pipe" function apparently resets the valid signals to false.B. We would like to avoid using global
+  //   // signals in the Mesh, so over here, we make it clear that the reset signal will never be asserted
+  //   chisel3.withReset(false.B) { Pipe(valid, t, latency).bits }
+  // }
+
+  //def arith = implicitly[Arithmetic[SparseInt]]
+  //
+// implicit val arith: Arithmetic[SparseInt] = SparseIntArithmetic
+
+
+//   (valid: Bool, t: T, latency: Int, forwardingCondition: Bool, forwardedData: T): T = {
 //   // If forwarding condition is met, forward the data directly; otherwise, use the pipeline
 //   Mux(forwardingCondition, forwardedData, pipe(valid, t, latency))
 //   chisel3.withReset(false.B) { Pipe(valid, t, latency).bits }
@@ -68,13 +85,30 @@ class SparseMesh[T <: Data : Arithmetic](inputType: T, outputType: T, accType: T
 
   // Chain tile_out_b -> tile_b_in (pipeline b across each column)
   for (c <- 0 until meshColumns) {
+    val zero = VecInit(Seq.fill(tileColumns)(0.U.asTypeOf(inputType)))
+    val valid = VecInit(Seq.fill(tileColumns)(1.U))
+    val invalid = VecInit(Seq.fill(tileColumns)(0.U))
+
+    io.out_forwarded_b(c) := zero // Default value
+    io.out_forwarded_b_valid(c) := invalid // Default value
+
     meshT(c).foldLeft((io.in_b(c), io.in_valid(c))) {
       case ((in_b, valid), tile) =>
 
+        when(in_b(0).forward) {
+          io.out_forwarded_b(c) := in_b // Last valid row wins
+          io.out_forwarded_b_valid(c) := valid
+        }
+
         // if forwarded, let the output be tile.io.out_b
-        // val forward_out = Mux(in_b(0).forward, tile.io.out_b, )
-        // val next_tile_in
-        tile.io.in_b := pipe(valid.head, in_b, tile_latency+1)
+        //val forward_out = Mux(in_b(0).forward, tile.io.out_b, )
+
+        // val zero = VecInit(Seq.fill(tileColumns)(0.U.asTypeOf(inputType)))
+        // io.out_forwarded_b(c) := Mux(in_b(0).forward, in_b, zero)
+
+
+        val next_tile_in = Mux(in_b(0).forward, zero, in_b)
+        tile.io.in_b := pipe(valid.head, next_tile_in, tile_latency+1)
         (tile.io.out_b, tile.io.out_valid)
     }
   }

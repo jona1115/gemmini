@@ -29,7 +29,7 @@ import chisel3.experimental.requireIsChiselType
 // TODO get a better initialization strategy
 
 
-
+/*
 class LocalMeshTag extends Bundle with TagQueueTag {
 
   val testconfig = GemminiCustomConfigs.sparseCPRE581Config
@@ -47,11 +47,12 @@ class LocalMeshTag extends Bundle with TagQueueTag {
     addr.make_this_garbage()
   }
 }
+*/
 
-case class MeshTesterInput(A: Matrix[Int], B: Matrix[Int], D: Matrix[Int], flipS: Boolean)
+//case class MeshTesterInput(A: Matrix[Int], B: Matrix[Int], D: Matrix[Int], flipS: Boolean)
 
 
-abstract class MeshWithDelaysUnitTest(c: MeshWithDelays[SparseInt, LocalMeshTag], ms: Seq[MeshTesterInput], ts: Seq[MeshTesterInput],
+abstract class SparseMeshWithDelaysUnitTest(c: SparseMeshWithDelays[SparseInt, LocalMeshTag], ms: Seq[MeshTesterInput], ts: Seq[MeshTesterInput],
                                       inputGarbageCycles: () => Int, shift: Int = 0,
                                       verbose: Boolean = false)
   extends PeekPokeTester(c)
@@ -62,17 +63,41 @@ abstract class MeshWithDelaysUnitTest(c: MeshWithDelays[SparseInt, LocalMeshTag]
   case class MeshOutput(C: Matrix[Int], tag: Int)
 
 
-  def strobeInputs(m: Seq[Int], input: Vec[Vec[SparseInt]], valid: Bool): Unit = {
+  def strobeInputs(m: Seq[Int], input: Vec[Vec[SparseInt]], valid: Bool, tags: Boolean): Unit = {
     poke(valid, true)
 
     val slices = m.grouped(input.head.length).toList
 
-    for ((slice, i) <- slices.zipWithIndex) {
-      for ((elem, j) <- slice.zipWithIndex) {
-        poke(input(i)(j).data, elem)
+
+    if(tags == false)
+    {
+      for ((slice, i) <- slices.zipWithIndex) {
+        for ((elem, j) <- slice.zipWithIndex) {
+          poke(input(i)(j).data, elem)
+        }
       }
     }
+    else
+    {
+      for ((slice, i) <- slices.zipWithIndex) {
+        for ((elem, j) <- slice.zipWithIndex) {
+          val tag = if (elem > 0) (1 << 15) else elem
+            poke(input(i)(j).tags, tag)
+        }
+      }
+    }
+
+    // val tag_slices = t.grouped(input.head.length).toList
+
+    // for ((slice, i) <- tag_slices.zipWithIndex) {
+    //   for ((elem, j) <- tag_slices.zipWithIndex) {
+    //     poke(input(i)(j).tags, elem.asUInt)
+    //   }
+    // }
+
   }
+
+  //}
 
   def pokeAllInputValids(v: Boolean): Unit = {
     val valids = Seq(c.io.a.valid, c.io.b.valid, c.io.d.valid, c.io.req.valid, c.io.req.bits.tag.rob_id.valid) //c.io.s, c.io.tag_in.valid)
@@ -134,19 +159,30 @@ abstract class MeshWithDelaysUnitTest(c: MeshWithDelays[SparseInt, LocalMeshTag]
     //print(s"OutData: ${peek_data}\n")
     if (peek(c.io.resp.valid) == 1) {
       val peek_c = peek(c.io.resp.bits.data).map(_.toInt) //val peek_c = peek(c.io.out.bits).map(_.toInt)
+      //val peek_tags = peek(c.io.resp.bits.tags).map(_.toInt) //val peek_c = peek(c.io.out.bits).map(_.toInt)
+
       // val peek_s = peek(c.io.out_s).map(_.toInt % 2).reduce { (acc, s) =>
       //     assert(acc == s, "s values aren't all the same")
       //     acc
       // }
       val peek_tag = peek(c.io.resp.bits.tag.rob_id.bits).toInt//peek(c.io.tag_out).toInt
       if (peek_tag == 1)
-        raw_mesh_output = (peek_c, 0/*peek_s*/, peek_tag) +: raw_mesh_output
+        raw_mesh_output = (peek_c, 0, peek_tag) +: raw_mesh_output
     }
   }
 
   def startup(getOut: Boolean): Unit = {
 
     // Assert not valid until req.ready
+    
+    poke(c.io.req.bits.pe_control.propagate, 1) //poke(c.io.s, meshIn.S)
+    poke(c.io.req.bits.pe_control.dataflow, 1) // poke(c.io.m, meshIn.M)
+    poke(c.io.req.bits.flush, 2)
+    poke(c.io.req.bits.pe_control.shift, shift)
+    poke(c.io.req.bits.a_transpose, 0)
+    poke(c.io.req.bits.bd_transpose, 0)
+    pokeAddr(0, true)
+    poke(c.io.req.valid, 1)
     reset()
     do {
       step(1)
@@ -174,6 +210,13 @@ abstract class MeshWithDelaysUnitTest(c: MeshWithDelays[SparseInt, LocalMeshTag]
 
   // True starting point
 
+
+    poke(c.io.req.bits.pe_control.shift, shift)
+    poke(c.io.req.bits.a_transpose, 0)
+    poke(c.io.req.bits.bd_transpose, 0)
+    poke(c.io.req.bits.total_rows, meshRows*tileRows)
+    poke(c.io.req.bits.pe_control.dataflow, 1)
+
   startup(false) //wait for ready signal
 
   poke(c.io.req.bits.flush, 0)
@@ -184,7 +227,8 @@ abstract class MeshWithDelaysUnitTest(c: MeshWithDelays[SparseInt, LocalMeshTag]
   // Simpliest approach to adding SparseInt Tags is to just hold another matrix with them and assign them when data is set
   val sparseTagInputs = formatMs(ts)
 
-  for (meshIn <- meshInputs) {
+  //for (meshIn <- meshInputs) {
+  for ((meshIn, sparseTagIn) <- meshInputs zip sparseTagInputs) {
     
     print(s"Tag: ${meshIn.tag+1}\n")
     print(s"FlipS: ${meshIn.S}\n")
@@ -215,16 +259,27 @@ abstract class MeshWithDelaysUnitTest(c: MeshWithDelays[SparseInt, LocalMeshTag]
     poke(c.io.req.bits.tag.cols, 4)
     poke(c.io.req.bits.tag.rows, 4)
 
-    for ((a, b, d) <- (meshIn.A, meshIn.B, meshIn.D).zipped) {
+    //for ((a, b, d) <- (meshIn.A, meshIn.B, meshIn.D).zipped) {
+    //for (((((((b, c), v), ctrl), id), last), tile) <- io.out_b zip io.out_c zip io.out_valid zip io.out_control zip io.out_id zip io.out_last zip mesh.last) {
+    for ((((((a, b), d), a_tag), b_tag), d_tag) <- meshIn.A.zip(meshIn.B).zip(meshIn.D).zip(sparseTagIn.A).zip(sparseTagIn.B).zip(sparseTagIn.D)) {
+
       
       pokeAllInputValids(true)
-      strobeInputs(a, c.io.a.bits, c.io.a.valid)
-      strobeInputs(b, c.io.b.bits, c.io.b.valid)
-      strobeInputs(d, c.io.d.bits, c.io.d.valid)
+      strobeInputs(a, c.io.a.bits, c.io.a.valid, false)
+      strobeInputs(b, c.io.b.bits, c.io.b.valid, false)
+      strobeInputs(d, c.io.d.bits, c.io.d.valid, false)
+
+      strobeInputs(a_tag, c.io.a.bits, c.io.a.valid, true)
+      strobeInputs(b_tag, c.io.b.bits, c.io.b.valid, true)
+      strobeInputs(d_tag, c.io.d.bits, c.io.d.valid, true)
 
       print(s"a: ${a}\n")
       print(s"b: ${b}\n")
       print(s"d: ${d}\n")
+
+      print(s"a_tag: ${a_tag}\n")
+      print(s"b_tag: ${b_tag}\n")
+      print(s"d_tag: ${d_tag}\n")
 
       // Garbage cycles turn out to be necessary?
       var garbage_cycles = inputGarbageCycles() + 1
@@ -329,10 +384,10 @@ abstract class MeshWithDelaysUnitTest(c: MeshWithDelays[SparseInt, LocalMeshTag]
   //assert(results.map(_.tag) == meshInputs.init.map(_.tag), "Array tags are not correct")
 }
 
-class WSMeshWithDelaysUnitTest(c: MeshWithDelays[SparseInt, LocalMeshTag], ms: Seq[MeshTesterInput], ts: Seq[MeshTesterInput],
+class SparseWSMeshWithDelaysUnitTest(c: SparseMeshWithDelays[SparseInt, LocalMeshTag], ms: Seq[MeshTesterInput], ts: Seq[MeshTesterInput],
                                inputGarbageCyles: () => Int,
                                verbose: Boolean = false)
-  extends MeshWithDelaysUnitTest(c, ms, ts, inputGarbageCyles, verbose = verbose) // WS just ignores shift
+  extends SparseMeshWithDelaysUnitTest(c, ms, ts, inputGarbageCyles, verbose = verbose) // WS just ignores shift
 {
   override def formatMs(ms: Seq[MeshTesterInput]) = {
     // Shift the B matrices down so that they are input at the correct time
@@ -388,13 +443,38 @@ class SparseMeshWithDelaysTester extends AnyFlatSpec with ChiselScalatestTester
   val tileRows = 1
   val tileColumns = 1
 
+  val lastMatrix: Matrix[Int] = Seq(
+    Seq(1, 0, 0, 1),    // Row 0
+    Seq(0, 0, 0, 1),    // Row 1
+    Seq(0, 0, 0, 0),    // Row 2
+    Seq(0, 0, 0, 0)     // Row 3
+  )
+  val inputMatrix: Matrix[Int] = Seq(
+    Seq(2, 2, 0, 2),    // Row 0
+    Seq(0, 0, 0, 2),    // Row 1
+    Seq(0, 0, 0, 0),    // Row 2
+    Seq(0, 0, 0, 0)     // Row 3
+  )
+  val weightMatrix: Matrix[Int] = Seq(
+    Seq(1, 1, 1, 1),    // Row 0
+    Seq(1, 1, 1, 1),    // Row 1
+    Seq(1, 1, 1, 1),    // Row 2
+    Seq(1, 1, 1, 1)     // Row 3
+  )
+
   "SimpleSparseMeshWithDelaysTester" should "work" in {
 
-
-    test(new MeshWithDelays(inputType, spatialArrayOutputType, accType, (new LocalMeshTag).cloneType, dataflow, tree_reduce, tile_lat, output_lat, tileRows, tileColumns, meshRows, meshColumns, 
-    shifter_banks, shifter_banks)).withAnnotations(Seq(WriteVcdAnnotation/*VerilatorBackendAnnotation*/)).runPeekPoke(new WSMeshWithDelaysUnitTest(_, 
-    Seq.fill(1)(MeshTesterInput(rand(meshColumns), rand(meshColumns), zero(meshColumns), true)),
-    Seq.fill(1)(MeshTesterInput(rand(meshColumns), rand(meshColumns), zero(meshColumns), true)),
+    /* class MeshWithDelays[T <: Data: Arithmetic, U <: TagQueueTag with Data]
+  (inputType: T, val outputType: T, accType: T,
+   tagType: U, df: Dataflow.Value, tree_reduction: Boolean, tile_latency: Int, output_delay: Int,
+   tileRows: Int, tileColumns: Int, meshRows: Int, meshColumns: Int,
+   leftBanks: Int, upBanks: Int, outBanks: Int = 1, n_simultaneous_matmuls: Int = -1)
+  extends Module {
+  */
+    test(new SparseMeshWithDelays(inputType, spatialArrayOutputType, accType, (new LocalMeshTag).cloneType, dataflow, tree_reduce, tile_lat, output_lat, tileRows, tileColumns, meshRows, meshColumns, 
+    shifter_banks, shifter_banks)).withAnnotations(Seq(WriteVcdAnnotation/*,VerilatorBackendAnnotation*/)).runPeekPoke(new SparseWSMeshWithDelaysUnitTest(_, 
+    Seq.fill(1)(MeshTesterInput(inputMatrix, weightMatrix, zero(meshColumns), true)),
+    Seq.fill(1)(MeshTesterInput(lastMatrix, zero(meshColumns), zero(meshColumns), true)),
     () => 0, verbose = true))
   }
 }

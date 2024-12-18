@@ -28,6 +28,11 @@ object TestUtils {
       yield Seq.fill(i)(0) ++ Seq(1) ++ Seq.fill(dim-i-1)(0)
   }
 
+  def create_tags(dim: Int): Matrix[Int] = {
+    for (i <- 0 until dim)
+      yield (for (j <- 0 until dim) yield i * dim + j)
+  }
+
   def consecutive(dim: Int): Matrix[Int] = {
     (1 to dim*dim).grouped(dim).toSeq
   }

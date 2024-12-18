@@ -664,27 +664,27 @@ object Arithmetic {
       override def *(t: SparseUInt): SparseUInt = {
         val result = Wire(new SparseUInt(self.data.getWidth, self.tags.getWidth))
         result.data := self.data * t.data
-        result.tags := self.tags
+        result.tags := self.tags * t.tags
         result
       }
-      override def mac(m1: SparseUInt, m2: SparseUInt) = self + m1 * m2
+      override def mac(m1: SparseUInt, m2: SparseUInt) = m1 * m2 + self
       override def +(t: SparseUInt): SparseUInt = {
         val result = Wire(new SparseUInt(self.data.getWidth, self.tags.getWidth))
         result.data := self.data + t.data
-        result.tags := self.tags
+        result.tags := self.tags + t.tags
         result
       }
       override def -(t: SparseUInt): SparseUInt = {
         val result = Wire(new SparseUInt(self.data.getWidth, self.tags.getWidth))
         result.data := self.data - t.data
-        result.tags := self.tags
+        result.tags := self.tags - t.tags
         result
       }
 
       override def >>(u: UInt): SparseUInt = {
         val result = Wire(new SparseUInt(self.data.getWidth, self.tags.getWidth))
         result.data := self.data >> u
-        result.tags := self.tags
+        result.tags := self.tags >> u
         result
       }
 
@@ -768,7 +768,7 @@ object Arithmetic {
         val w = self.w max t.w
         SparseInt(w, self.data * t.data, self.tags)
       }
-      override def mac(m1: SparseInt, m2: SparseInt) = self + m1 * m2
+      override def mac(m1: SparseInt, m2: SparseInt) = m1 * m2 + self
       override def +(t: SparseInt): SparseInt = {
         val w = self.w max t.w
         SparseInt(w, self.data + t.data, self.tags)

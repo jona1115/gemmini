@@ -1,4 +1,4 @@
-/*
+
 package gemmini
 
 
@@ -501,6 +501,7 @@ class MeshWithDelaysTester extends AnyFlatSpec with ChiselScalatestTester
     shifter_banks, shifter_banks)).withAnnotations(Seq(WriteVcdAnnotation/*VerilatorBackendAnnotation*/)).runPeekPoke(new WSMeshWithDelaysUnitTest(_, Seq.fill(1)(MeshTesterInput(rand(meshColumns), rand(meshColumns), zero(meshColumns), 
     true)), () => 0, verbose = true))
   }
+}
 /*
   // Fully combinational
   "MeshWithDelaysTest" should "work fully combinationally with no delays" in {
@@ -584,11 +585,10 @@ class MeshWithDelaysTester extends AnyFlatSpec with ChiselScalatestTester
       }
     }
   }
-  */
 }
-
-
 */
+
+
 
 
 
