@@ -2,7 +2,7 @@
 package gemmini
 
 object Dataflow extends Enumeration {
-  val OS, WS, BOTH = Value
+  val OS, WS, BOTH = Value //added sparse
 }
 
 

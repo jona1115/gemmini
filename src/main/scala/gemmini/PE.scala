@@ -129,6 +129,22 @@ class PE[T <: Data](inputType: T, outputType: T, accType: T, df: Dataflow.Value,
       io.out_b := mac_unit.io.out_d
       c2 := d
     }
+    /* MODIFIED BEGIN */
+  // }.elsewhen ((df == Dataflow.SPARSE).B || ((df == Dataflow.BOTH).B && dataflow === WEIGHT_STATIONARY)) {
+  //   when(prop === PROPAGATE) {
+  //     io.out_c := c1
+  //     mac_unit.io.in_b := c2.asTypeOf(inputType)
+  //     mac_unit.io.in_c := b
+  //     io.out_b := mac_unit.io.out_d
+  //     c1 := d
+  //   }.otherwise {
+  //     io.out_c := c2
+  //     mac_unit.io.in_b := c1.asTypeOf(inputType)
+  //     mac_unit.io.in_c := b
+  //     io.out_b := mac_unit.io.out_d
+  //     c2 := d
+  //   }
+    /* MODIFIED END */
   }.otherwise {
     io.bad_dataflow := true.B
     //assert(false.B, "unknown dataflow")

@@ -2,12 +2,16 @@
 package chipyard
 
 import org.chipsalliance.cde.config.Config
+//import org.chipsalliance.cde.config.{Config}
+
+//import chipyard.config_
+
 import gemmini.{GemminiCustomConfig, GemminiCustomConfigs}
 
 class CustomGemminiSoCConfig extends Config(
   new gemmini.GemminiCustomConfig ++
 
-  // Set your custom L2 configs
+  //Set your custom L2 configs
   new chipyard.config.WithL2TLBs(512) ++
 
   new freechips.rocketchip.subsystem.WithInclusiveCache(
@@ -22,5 +26,7 @@ class CustomGemminiSoCConfig extends Config(
 
   new chipyard.config.WithSystemBusWidth(GemminiCustomConfigs.customConfig.dma_buswidth) ++
   new chipyard.config.AbstractConfig
+  
 )
+
 */
