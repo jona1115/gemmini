@@ -1,15 +1,14 @@
 # Gemmini for Project-SADD-MaMA
-- This is the branch used in Project SADD MaMA. See [here](www.todo.com) for more details.
+- This is the branch used in Project SADD MaMA. See [here](https://github.com/jona1115/chipyard/tree/Project-SADD-MaMA) for more details.
 - This is branched off the forked directory's 25809f7 commit.
 - This is to be used with other directories forked by me, e.g., [Chipyard](www.todo.com), [gemmini-rocc-tests]([https://github.com/jona1115/gemmini-rocc-tests](https://github.com/jona1115/gemmini-rocc-tests/tree/Project-SADD-MaMA)).
 
 ### How to build gemmini?
 Because the official gemmini README is out-of-date, below is my guide on how to set it up to be used with Chipyard:
-1. Go to <chipyard>/sims/verilator, and run: `make CONFIG=GemminiRocketConfig`. If you are using [my forked version of Chipyard](https://github.com/jona1115/chipyard/tree/main), there are additional guide in the [README.md](https://github.com/jona1115/chipyard/blob/main/README.md).
-2. Still figuring out...
+1. If you build Chipyard using [my forked version of Chipyard](https://github.com/jona1115/chipyard/tree/Project-SADD-MaMA), you shouldn't need to run additional stuff to set up Gemmini.
 
 ---
-# Below are the original README.md content:
+# Below is the original README.md content:
 > Warning: the "Installing Chipyard and Spike", "Setting Up Gemmini", "Building Gemmini Software", and "Building Gemmini Hardware and Cycle-Accurate Simulators" parts are out of date. Use my guide above!
 
 
